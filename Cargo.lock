@@ -703,6 +703,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctor"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edb49164822f3ee45b17acd4a208cfc1251410cf0cad9a833234c9890774dd9f"
+dependencies = [
+ "quote",
+ "syn 2.0.77",
+]
+
+[[package]]
 name = "darling"
 version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1449,10 +1459,12 @@ dependencies = [
  "argon2",
  "async-trait",
  "chrono",
+ "ctor",
  "derive_more 1.0.0",
  "dotenv",
  "env_logger",
  "jsonwebtoken",
+ "lazy_static",
  "log",
  "mime",
  "mockall",

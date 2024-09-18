@@ -28,3 +28,5 @@ jsonwebtoken = { version = "9.3", default-features = false }
 [dev-dependencies]
 testcontainers-modules = { version = "0.9", features = ["postgres"] }
 mockall = "0.13"
+lazy_static = "1.5"
+ctor = "0.2.8"
