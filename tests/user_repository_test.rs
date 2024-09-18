@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::{create_pg_pool, start_pg_container, DEFAULT_PG_PORT};
+use common::{create_pg_pool, start_pg_container, DEFAULT_PG_PORT};
 use journal_backend::user::repository::{PostgresUserRepository, UserRepository};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ContainerAsync;
