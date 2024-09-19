@@ -1,8 +1,8 @@
 pub mod common;
 
-use crate::common::create_pg_pool;
 use common::{
-    channel, clean_up, execute_blocking, get_pg_port, start_pg_container, Channel, ContainerCommand,
+    channel, clean_up, create_pg_pool, execute_blocking, get_pg_port, start_pg_container, Channel,
+    ContainerCommand,
 };
 use ctor::{ctor, dtor};
 use journal_backend::journal::model::EventType;
