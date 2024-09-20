@@ -1,9 +1,14 @@
 use actix_web::http::{header, StatusCode};
 use actix_web::{HttpResponse, HttpResponseBuilder, ResponseError};
-use derive_more::Debug;
+use serde::Serialize;
 use std::time::Duration;
 
-#[derive(Debug)]
+#[derive(Serialize, Debug)]
+pub struct IdResponse<T> {
+    pub id: T,
+}
+
+#[derive(derive_more::Debug)]
 #[debug("{_0}")]
 pub struct InvalidField(pub String);
 
@@ -17,6 +22,8 @@ pub enum AppError {
     Unauthorized,
     #[error("could not process request")]
     ProcessingError,
+    #[error("some of the removed tags {0:?} are still used in journal entries")]
+    TagsStillUsed(Vec<String>),
     #[error(transparent)]
     JwtValidation(#[from] jsonwebtoken::errors::Error),
     #[error(transparent)]
@@ -40,6 +47,7 @@ impl ResponseError for AppError {
             AppError::NotFound => StatusCode::NOT_FOUND,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::JwtValidation(_) => StatusCode::UNAUTHORIZED,
+            AppError::TagsStillUsed(_) => StatusCode::CONFLICT,
             AppError::DatabaseError(sqlx::Error::RowNotFound) => StatusCode::NOT_FOUND,
             AppError::DatabaseError(sqlx::Error::Database(ref db_err)) => match db_err.kind() {
                 sqlx::error::ErrorKind::UniqueViolation => StatusCode::CONFLICT,

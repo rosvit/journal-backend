@@ -1,7 +1,5 @@
-use crate::model::AppError;
-use crate::user::model::{
-    LoginRequest, NewUser, RegistrationResponse, UpdatePasswordRequest, UserId,
-};
+use crate::model::{AppError, IdResponse};
+use crate::user::model::{LoginRequest, NewUser, UpdatePasswordRequest, UserId};
 use crate::user::service::UserService;
 use actix_web::http::header;
 use actix_web::http::header::CacheDirective;
@@ -14,7 +12,7 @@ pub async fn register<T: UserService>(
 ) -> Result<HttpResponse, AppError> {
     user.validate().map_err(AppError::from)?;
     let user_id = user_service.register(user.into_inner()).await?;
-    Ok(HttpResponse::Ok().json(RegistrationResponse { id: user_id }))
+    Ok(HttpResponse::Ok().json(IdResponse { id: user_id }))
 }
 
 pub async fn login<T: UserService>(

@@ -42,9 +42,7 @@ impl<T: UserRepository + Send + Sync> UserService for UserServiceImpl<T> {
         let password_hash = tokio::task::spawn_blocking(move || hash_password(&user.password))
             .await
             .context("Failed to execute password hashing")?;
-        let inserted_id =
-            self.user_repository.insert(&user.username, &password_hash?, &user.email).await?;
-        Ok(inserted_id)
+        Ok(self.user_repository.insert(&user.username, &password_hash?, &user.email).await?)
     }
 
     async fn login(&self, username: String, password: String) -> Result<LoginResponse, AppError> {
@@ -65,8 +63,7 @@ impl<T: UserRepository + Send + Sync> UserService for UserServiceImpl<T> {
         let password_hash = tokio::task::spawn_blocking(move || hash_password(&password))
             .await
             .context("Failed to execute password hashing")?;
-        let update_result = self.user_repository.update_password(user_id, &password_hash?).await?;
-        Ok(update_result)
+        Ok(self.user_repository.update_password(user_id, &password_hash?).await?)
     }
 
     fn validate_token(&self, access_token: &str) -> Result<JwtClaims, AppError> {

@@ -29,11 +29,6 @@ pub struct NewUser {
     pub email: String,
 }
 
-#[derive(Serialize, Debug)]
-pub struct RegistrationResponse {
-    pub id: UserId,
-}
-
 #[derive(Deserialize, Debug)]
 pub struct LoginRequest {
     pub username: String,

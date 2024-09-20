@@ -41,3 +41,10 @@ pub struct JournalEntry {
     pub tags: Vec<String>,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct EventTypeData {
+    pub name: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}

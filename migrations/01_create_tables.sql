@@ -26,3 +26,6 @@ CREATE TABLE IF NOT EXISTS journal_entry
 );
 
 CREATE INDEX IF NOT EXISTS idx_journal_entry_user_event_type on journal_entry (user_id, event_type_id);
+
+CREATE EXTENSION btree_gin;
+CREATE INDEX IF NOT EXISTS idx_journal_entry_tags on journal_entry USING GIN (event_type_id, tags);

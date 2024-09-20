@@ -8,7 +8,8 @@ use sqlx::PgPool;
 pub trait JournalRepository {
     async fn find_event_type_by_id(
         &self,
-        event_type_id: EventTypeId,
+        user_id: UserId,
+        id: EventTypeId,
     ) -> Result<Option<EventType>, sqlx::Error>;
 
     async fn find_event_types_by_user_id(
@@ -25,14 +26,26 @@ pub trait JournalRepository {
 
     async fn update_event_type(
         &self,
-        event_type_id: EventTypeId,
+        user_id: UserId,
+        id: EventTypeId,
         name: &str,
         tags: &[String],
-    ) -> Result<(), sqlx::Error>;
+    ) -> Result<bool, sqlx::Error>;
 
-    async fn delete_event_type(&self, event_type_id: EventTypeId) -> Result<(), sqlx::Error>;
+    async fn delete_event_type(
+        &self,
+        user_id: UserId,
+        id: EventTypeId,
+    ) -> Result<bool, sqlx::Error>;
 
     async fn validate_tags(
+        &self,
+        user_id: UserId,
+        id: EventTypeId,
+        tags: &[String],
+    ) -> Result<bool, sqlx::Error>;
+
+    async fn contains_entries_with_tags(
         &self,
         event_type_id: EventTypeId,
         tags: &[String],
@@ -53,15 +66,18 @@ impl PostgresJournalRepository {
 impl JournalRepository for PostgresJournalRepository {
     async fn find_event_type_by_id(
         &self,
-        event_type_id: EventTypeId,
+        user_id: UserId,
+        id: EventTypeId,
     ) -> Result<Option<EventType>, sqlx::Error> {
         sqlx::query_as!(
             EventType,
-            r#"SELECT id as "id: _", user_id as "user_id: _", name, tags FROM event_type WHERE id = $1"#,
-            event_type_id as EventTypeId,
+            r#"SELECT id as "id: _", user_id as "user_id: _", name, tags FROM event_type
+                WHERE id = $1 AND user_id = $2"#,
+            id as EventTypeId,
+            user_id as UserId
         )
-            .fetch_optional(&self.pool)
-            .await
+        .fetch_optional(&self.pool)
+        .await
     }
 
     async fn find_event_types_by_user_id(
@@ -73,8 +89,8 @@ impl JournalRepository for PostgresJournalRepository {
             r#"SELECT id as "id: _", user_id as "user_id: _", name, tags FROM event_type WHERE user_id = $1"#,
             user_id as UserId,
         )
-            .fetch_all(&self.pool)
-            .await
+        .fetch_all(&self.pool)
+        .await
     }
 
     async fn insert_event_type(
@@ -93,35 +109,62 @@ impl JournalRepository for PostgresJournalRepository {
 
     async fn update_event_type(
         &self,
-        event_type_id: EventTypeId,
+        user_id: UserId,
+        id: EventTypeId,
         name: &str,
         tags: &[String],
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<bool, sqlx::Error> {
         sqlx::query!(
-            r#"UPDATE event_type SET name = $1, tags = $2 WHERE id = $3"#,
+            r#"UPDATE event_type SET name = $1, tags = $2 WHERE id = $3 AND user_id = $4"#,
             name,
             tags,
-            event_type_id as EventTypeId
+            id as EventTypeId,
+            user_id as UserId
         )
         .execute(&self.pool)
         .await
-        .map(|_| ())
+        .map(|r| r.rows_affected() > 0)
     }
 
-    async fn delete_event_type(&self, event_type_id: EventTypeId) -> Result<(), sqlx::Error> {
-        sqlx::query!(r#"DELETE FROM event_type WHERE id = $1"#, event_type_id as EventTypeId)
-            .execute(&self.pool)
-            .await
-            .map(|_| ())
+    async fn delete_event_type(
+        &self,
+        user_id: UserId,
+        id: EventTypeId,
+    ) -> Result<bool, sqlx::Error> {
+        sqlx::query!(
+            r#"DELETE FROM event_type WHERE id = $1 and user_id = $2"#,
+            id as EventTypeId,
+            user_id as UserId
+        )
+        .execute(&self.pool)
+        .await
+        .map(|r| r.rows_affected() > 0)
     }
 
     async fn validate_tags(
+        &self,
+        user_id: UserId,
+        event_type_id: EventTypeId,
+        tags: &[String],
+    ) -> Result<bool, sqlx::Error> {
+        sqlx::query!(
+            r#"SELECT count(id) FROM event_type WHERE id = $1 AND user_id = $2 AND $3 <@ tags"#,
+            event_type_id as EventTypeId,
+            user_id as UserId,
+            tags
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map(|record| record.count.unwrap_or(0).is_positive())
+    }
+
+    async fn contains_entries_with_tags(
         &self,
         event_type_id: EventTypeId,
         tags: &[String],
     ) -> Result<bool, sqlx::Error> {
         sqlx::query!(
-            r#"SELECT count(id) FROM event_type WHERE id = $1 AND $2 <@ tags"#,
+            r#"SELECT count(id) FROM journal_entry WHERE event_type_id = $1 AND tags && $2"#,
             event_type_id as EventTypeId,
             tags
         )

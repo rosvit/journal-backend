@@ -4,9 +4,9 @@ Backend for simple journaling system written in Rust.
 
 Journal allows users to:
 * Register new user account and log-in into the application.
-* _(work in progress)_ Create and manage event types they can log into the system.
-* _(work in progress)_ Optionally assign tags for each event type.
-* _(work in progress)_ Log journal entries for their event types and tags.
+* Create and manage event types that can be used in the journal entries.
+* Optionally assign tags for each event type.
+* _(work in progress)_ Log journal entries with event types and tags.
 * _(work in progress)_ Search entries using various criteria.
 
 ## Running the project locally

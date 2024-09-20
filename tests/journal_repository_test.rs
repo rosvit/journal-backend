@@ -48,8 +48,11 @@ async fn test_insert_event_type() {
     let tags = vec!["tag1".to_string(), "tag2".to_string()];
     let event_id = journal_repo.insert_event_type(user_id, "test_event", &tags).await.unwrap();
 
-    let event =
-        journal_repo.find_event_type_by_id(event_id).await.unwrap().expect("event type not found");
+    let event = journal_repo
+        .find_event_type_by_id(user_id, event_id)
+        .await
+        .unwrap()
+        .expect("event type not found");
 
     assert_eq!(event.user_id, user_id);
     assert_eq!(event.name, "test_event");
@@ -66,9 +69,15 @@ async fn test_update_event_type() {
         .await
         .unwrap();
 
-    journal_repo.update_event_type(id, "new_name", &vec!["new_tag".to_string()]).await.unwrap();
-    let updated =
-        journal_repo.find_event_type_by_id(id).await.unwrap().expect("event type not found");
+    journal_repo
+        .update_event_type(user_id, id, "new_name", &vec!["new_tag".to_string()])
+        .await
+        .unwrap();
+    let updated = journal_repo
+        .find_event_type_by_id(user_id, id)
+        .await
+        .unwrap()
+        .expect("event type not found");
 
     assert_eq!(
         updated,
@@ -86,8 +95,8 @@ async fn test_delete_event_type() {
         .await
         .unwrap();
 
-    journal_repo.delete_event_type(id).await.unwrap();
-    let found = journal_repo.find_event_type_by_id(id).await.unwrap();
+    journal_repo.delete_event_type(user_id, id).await.unwrap();
+    let found = journal_repo.find_event_type_by_id(user_id, id).await.unwrap();
 
     assert_eq!(found, None);
 }
@@ -102,8 +111,10 @@ async fn test_validate_all_tags_present() {
         .await
         .unwrap();
 
-    let res_false = journal_repo.validate_tags(event_id, &vec!["tag_a".to_string()]).await.unwrap();
-    let res_true = journal_repo.validate_tags(event_id, &vec!["tag2".to_string()]).await.unwrap();
+    let res_false =
+        journal_repo.validate_tags(user_id, event_id, &vec!["tag_a".to_string()]).await.unwrap();
+    let res_true =
+        journal_repo.validate_tags(user_id, event_id, &vec!["tag2".to_string()]).await.unwrap();
 
     assert!(!res_false);
     assert!(res_true);

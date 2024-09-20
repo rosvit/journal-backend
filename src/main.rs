@@ -5,6 +5,9 @@ use actix_web_httpauth::middleware::HttpAuthentication;
 use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
 use dotenv::dotenv;
 use env_logger::Env;
+use journal_backend::journal::handler::*;
+use journal_backend::journal::repository::PostgresJournalRepository;
+use journal_backend::journal::service::JournalServiceImpl;
 use journal_backend::model::Config;
 use journal_backend::user::handler::*;
 use journal_backend::user::middleware::*;
@@ -16,7 +19,8 @@ use std::env;
 use std::time::Duration;
 
 const ROOT: &str = "";
-type DefaultUserService = UserServiceImpl<PostgresUserRepository>;
+type UserSvc = UserServiceImpl<PostgresUserRepository>;
+type JournalSvc = JournalServiceImpl<PostgresJournalRepository>;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -33,6 +37,8 @@ async fn main() -> std::io::Result<()> {
         config.jwt_encoding_key_secret.clone(),
         config.jwt_exp_duration,
     ));
+    let journal_repository = PostgresJournalRepository::new(pool.clone());
+    let journal_service = web::Data::new(JournalServiceImpl::new(journal_repository));
 
     HttpServer::new(move || {
         App::new()
@@ -40,17 +46,28 @@ async fn main() -> std::io::Result<()> {
             .wrap(Cors::permissive())
             .wrap(metrics.clone())
             .app_data(user_service.clone())
+            .app_data(journal_service.clone())
             .service(
                 web::scope("/user")
-                    .route(ROOT, web::post().to(register::<DefaultUserService>))
-                    .route("/login", web::post().to(login::<DefaultUserService>))
+                    .route(ROOT, web::post().to(register::<UserSvc>))
+                    .route("/login", web::post().to(login::<UserSvc>))
                     .service(
                         web::resource("/{user_id}")
                             .wrap(from_fn(validate_caller_id))
-                            .wrap(HttpAuthentication::bearer(
-                                access_token_validator::<DefaultUserService>,
-                            ))
-                            .put(update_password::<DefaultUserService>),
+                            .wrap(HttpAuthentication::bearer(access_token_validator::<UserSvc>))
+                            .put(update_password::<UserSvc>),
+                    ),
+            )
+            .service(
+                web::scope("/journal/my")
+                    .wrap(HttpAuthentication::bearer(access_token_validator::<UserSvc>))
+                    .service(
+                        web::scope("/events")
+                            .route(ROOT, web::get().to(find_user_event_types::<JournalSvc>))
+                            .route(ROOT, web::post().to(insert_event_type::<JournalSvc>))
+                            .route("/{type_id}", web::get().to(find_event_type::<JournalSvc>))
+                            .route("/{type_id}", web::put().to(update_event_type::<JournalSvc>))
+                            .route("/{type_id}", web::delete().to(delete_event_type::<JournalSvc>)),
                     ),
             )
     })
