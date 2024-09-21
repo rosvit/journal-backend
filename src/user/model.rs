@@ -1,3 +1,4 @@
+use crate::model::IdType;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -12,6 +13,8 @@ impl UserId {
         Self(uuid)
     }
 }
+
+impl IdType for UserId {}
 
 #[derive(Debug)]
 pub struct User {

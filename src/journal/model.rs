@@ -1,3 +1,4 @@
+use crate::model::IdType;
 use crate::user::model::UserId;
 use chrono::prelude::*;
 use derive_more::Display;
@@ -14,6 +15,8 @@ impl EventTypeId {
     }
 }
 
+impl IdType for EventTypeId {}
+
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(transparent)]
 pub struct JournalEntryId(Uuid);
@@ -23,6 +26,8 @@ impl JournalEntryId {
         Self(uuid)
     }
 }
+
+impl IdType for JournalEntryId {}
 
 #[derive(Eq, PartialEq, Serialize, Debug)]
 pub struct EventType {

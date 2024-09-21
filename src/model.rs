@@ -3,8 +3,13 @@ use actix_web::{HttpResponse, HttpResponseBuilder, ResponseError};
 use serde::Serialize;
 use std::time::Duration;
 
+// Ideally there should be a proc_macro_derive for this marker trait, but since it would require
+// a separate crate of proc-macro type, the overhead of such macro is not worth for a small project
+// like this.
+pub trait IdType {}
+
 #[derive(Serialize, Debug)]
-pub struct IdResponse<T> {
+pub struct IdResponse<T: IdType> {
     pub id: T,
 }
 
