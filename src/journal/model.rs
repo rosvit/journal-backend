@@ -37,7 +37,7 @@ pub struct EventType {
     pub tags: Vec<String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Eq, PartialEq, Serialize, Debug, sqlx::FromRow)]
 pub struct JournalEntry {
     pub id: JournalEntryId,
     pub user_id: UserId,
@@ -52,4 +52,26 @@ pub struct EventTypeData {
     pub name: String,
     #[serde(default)]
     pub tags: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Default)]
+pub struct SearchFilter {
+    pub event_type_id: Option<EventTypeId>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub before: Option<DateTime<Utc>>,
+    pub after: Option<DateTime<Utc>>,
+    pub sort: Option<SortOrder>,
+    pub offset: Option<u32>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Eq, PartialEq, Deserialize, Debug, derive_more::Display)]
+pub enum SortOrder {
+    #[display("ASC")]
+    #[serde(alias = "asc", alias = "ASC")]
+    Asc,
+    #[display("DESC")]
+    #[serde(alias = "desc", alias = "DESC")]
+    Desc,
 }
