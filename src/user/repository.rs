@@ -22,18 +22,18 @@ pub trait UserRepository {
     async fn update_password(&self, id: UserId, new_password: &str) -> Result<bool, sqlx::Error>;
 }
 
-pub struct PostgresUserRepository {
+pub struct PgUserRepository {
     pool: PgPool,
 }
 
-impl PostgresUserRepository {
+impl PgUserRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl UserRepository for PostgresUserRepository {
+impl UserRepository for PgUserRepository {
     async fn find_by_id(&self, id: UserId) -> Result<Option<User>, sqlx::Error> {
         sqlx::query_as!(
             User,

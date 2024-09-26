@@ -6,26 +6,23 @@ use sqlx::{PgPool, Postgres, QueryBuilder};
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait JournalRepository {
-    async fn find_event_type_by_id(
+pub trait EventTypeRepository {
+    async fn find_by_id(
         &self,
         user_id: UserId,
         id: EventTypeId,
     ) -> Result<Option<EventType>, sqlx::Error>;
 
-    async fn find_event_types_by_user_id(
-        &self,
-        user_id: UserId,
-    ) -> Result<Vec<EventType>, sqlx::Error>;
+    async fn find_by_user_id(&self, user_id: UserId) -> Result<Vec<EventType>, sqlx::Error>;
 
-    async fn insert_event_type(
+    async fn insert(
         &self,
         user_id: UserId,
         name: &str,
         tags: &[String],
     ) -> Result<EventTypeId, sqlx::Error>;
 
-    async fn update_event_type(
+    async fn update(
         &self,
         user_id: UserId,
         id: EventTypeId,
@@ -33,11 +30,7 @@ pub trait JournalRepository {
         tags: &[String],
     ) -> Result<bool, sqlx::Error>;
 
-    async fn delete_event_type(
-        &self,
-        user_id: UserId,
-        id: EventTypeId,
-    ) -> Result<bool, sqlx::Error>;
+    async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, sqlx::Error>;
 
     async fn validate_tags(
         &self,
@@ -45,63 +38,21 @@ pub trait JournalRepository {
         id: EventTypeId,
         tags: &[String],
     ) -> Result<bool, sqlx::Error>;
-
-    async fn find_journal_entry_by_id(
-        &self,
-        user_id: UserId,
-        id: JournalEntryId,
-    ) -> Result<Option<JournalEntry>, sqlx::Error>;
-
-    async fn find_journal_entries(
-        &self,
-        user_id: UserId,
-        filter: &SearchFilter,
-    ) -> Result<Vec<JournalEntry>, sqlx::Error>;
-
-    async fn insert_journal_entry(
-        &self,
-        user_id: UserId,
-        event_type_id: EventTypeId,
-        description: Option<&str>,
-        tags: &[String],
-        created_at: Option<DateTime<Utc>>,
-    ) -> Result<JournalEntryId, sqlx::Error>;
-
-    async fn update_journal_entry(
-        &self,
-        user_id: UserId,
-        id: JournalEntryId,
-        description: Option<&str>,
-        tags: &[String],
-        created_at: Option<DateTime<Utc>>,
-    ) -> Result<bool, sqlx::Error>;
-
-    async fn delete_journal_entry(
-        &self,
-        user_id: UserId,
-        id: JournalEntryId,
-    ) -> Result<bool, sqlx::Error>;
-
-    async fn contains_entries_with_tags(
-        &self,
-        event_type_id: EventTypeId,
-        tags: &[String],
-    ) -> Result<bool, sqlx::Error>;
 }
 
-pub struct PostgresJournalRepository {
+pub struct PgEventTypeRepository {
     pool: PgPool,
 }
 
-impl PostgresJournalRepository {
+impl PgEventTypeRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl JournalRepository for PostgresJournalRepository {
-    async fn find_event_type_by_id(
+impl EventTypeRepository for PgEventTypeRepository {
+    async fn find_by_id(
         &self,
         user_id: UserId,
         id: EventTypeId,
@@ -117,20 +68,17 @@ impl JournalRepository for PostgresJournalRepository {
         .await
     }
 
-    async fn find_event_types_by_user_id(
-        &self,
-        user_id: UserId,
-    ) -> Result<Vec<EventType>, sqlx::Error> {
+    async fn find_by_user_id(&self, user_id: UserId) -> Result<Vec<EventType>, sqlx::Error> {
         sqlx::query_as!(
             EventType,
             r#"SELECT id as "id: _", user_id as "user_id: _", name, tags FROM event_type WHERE user_id = $1"#,
             user_id as UserId,
         )
-        .fetch_all(&self.pool)
-        .await
+            .fetch_all(&self.pool)
+            .await
     }
 
-    async fn insert_event_type(
+    async fn insert(
         &self,
         user_id: UserId,
         name: &str,
@@ -144,7 +92,7 @@ impl JournalRepository for PostgresJournalRepository {
             .map(|record| record.id)
     }
 
-    async fn update_event_type(
+    async fn update(
         &self,
         user_id: UserId,
         id: EventTypeId,
@@ -163,11 +111,7 @@ impl JournalRepository for PostgresJournalRepository {
         .map(|r| r.rows_affected() > 0)
     }
 
-    async fn delete_event_type(
-        &self,
-        user_id: UserId,
-        id: EventTypeId,
-    ) -> Result<bool, sqlx::Error> {
+    async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, sqlx::Error> {
         sqlx::query!(
             r#"DELETE FROM event_type WHERE id = $1 and user_id = $2"#,
             id as EventTypeId,
@@ -198,8 +142,63 @@ impl JournalRepository for PostgresJournalRepository {
         .await
         .map(|record| record.count.unwrap_or(0).is_positive())
     }
+}
 
-    async fn find_journal_entry_by_id(
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait JournalEntryRepository {
+    async fn find_by_id(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+    ) -> Result<Option<JournalEntry>, sqlx::Error>;
+
+    async fn find(
+        &self,
+        user_id: UserId,
+        filter: &SearchFilter,
+    ) -> Result<Vec<JournalEntry>, sqlx::Error>;
+
+    async fn insert<'a>(
+        &self,
+        user_id: UserId,
+        event_type_id: EventTypeId,
+        description: Option<&'a str>,
+        tags: &[String],
+        created_at: Option<DateTime<Utc>>,
+    ) -> Result<JournalEntryId, sqlx::Error>;
+
+    async fn update<'a>(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+        description: Option<&'a str>,
+        tags: &[String],
+        created_at: Option<DateTime<Utc>>,
+    ) -> Result<bool, sqlx::Error>;
+
+    async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, sqlx::Error>;
+
+    async fn contains_with_tags(
+        &self,
+        event_type_id: EventTypeId,
+        tags: &[String],
+    ) -> Result<bool, sqlx::Error>;
+}
+
+pub struct PgJournalEntryRepository {
+    pool: PgPool,
+}
+
+impl PgJournalEntryRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl JournalEntryRepository for PgJournalEntryRepository {
+    async fn find_by_id(
         &self,
         user_id: UserId,
         id: JournalEntryId,
@@ -216,7 +215,7 @@ impl JournalRepository for PostgresJournalRepository {
         .await
     }
 
-    async fn find_journal_entries(
+    async fn find(
         &self,
         user_id: UserId,
         filter: &SearchFilter,
@@ -252,11 +251,11 @@ impl JournalRepository for PostgresJournalRepository {
         query.build_query_as::<JournalEntry>().fetch_all(&self.pool).await
     }
 
-    async fn insert_journal_entry(
+    async fn insert<'a>(
         &self,
         user_id: UserId,
         event_type_id: EventTypeId,
-        description: Option<&str>,
+        description: Option<&'a str>,
         tags: &[String],
         created_at: Option<DateTime<Utc>>,
     ) -> Result<JournalEntryId, sqlx::Error> {
@@ -274,11 +273,11 @@ impl JournalRepository for PostgresJournalRepository {
         .map(|record| record.id)
     }
 
-    async fn update_journal_entry(
+    async fn update<'a>(
         &self,
         user_id: UserId,
         id: JournalEntryId,
-        description: Option<&str>,
+        description: Option<&'a str>,
         tags: &[String],
         created_at: Option<DateTime<Utc>>,
     ) -> Result<bool, sqlx::Error> {
@@ -296,11 +295,7 @@ impl JournalRepository for PostgresJournalRepository {
         .map(|r| r.rows_affected() > 0)
     }
 
-    async fn delete_journal_entry(
-        &self,
-        user_id: UserId,
-        id: JournalEntryId,
-    ) -> Result<bool, sqlx::Error> {
+    async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, sqlx::Error> {
         sqlx::query!(
             r#"DELETE FROM journal_entry WHERE id = $1 and user_id = $2"#,
             id as JournalEntryId,
@@ -311,7 +306,7 @@ impl JournalRepository for PostgresJournalRepository {
         .map(|r| r.rows_affected() > 0)
     }
 
-    async fn contains_entries_with_tags(
+    async fn contains_with_tags(
         &self,
         event_type_id: EventTypeId,
         tags: &[String],

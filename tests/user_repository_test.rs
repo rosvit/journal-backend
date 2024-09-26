@@ -5,7 +5,7 @@ use common::{
     ContainerCommand,
 };
 use ctor::{ctor, dtor};
-use journal_backend::user::repository::{PostgresUserRepository, UserRepository};
+use journal_backend::user::repository::{PgUserRepository, UserRepository};
 use lazy_static::lazy_static;
 use std::thread;
 
@@ -66,5 +66,5 @@ async fn test_update_password() {
 async fn setup_user_repository() -> impl UserRepository {
     let port = get_pg_port(&CMD_IN, &PG_PORT).await;
     let pool = create_pg_pool(port).await;
-    PostgresUserRepository::new(pool)
+    PgUserRepository::new(pool)
 }

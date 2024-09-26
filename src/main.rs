@@ -6,12 +6,12 @@ use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
 use dotenv::dotenv;
 use env_logger::Env;
 use journal_backend::journal::handler::*;
-use journal_backend::journal::repository::PostgresJournalRepository;
+use journal_backend::journal::repository::{PgEventTypeRepository, PgJournalEntryRepository};
 use journal_backend::journal::service::JournalServiceImpl;
 use journal_backend::model::Config;
 use journal_backend::user::handler::*;
 use journal_backend::user::middleware::*;
-use journal_backend::user::repository::PostgresUserRepository;
+use journal_backend::user::repository::PgUserRepository;
 use journal_backend::user::service::UserServiceImpl;
 use log::debug;
 use sqlx::PgPool;
@@ -19,8 +19,8 @@ use std::env;
 use std::time::Duration;
 
 const ROOT: &str = "";
-type UserSvc = UserServiceImpl<PostgresUserRepository>;
-type JournalSvc = JournalServiceImpl<PostgresJournalRepository>;
+type UserSvc = UserServiceImpl<PgUserRepository>;
+type JournalSvc = JournalServiceImpl<PgEventTypeRepository, PgJournalEntryRepository>;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -31,14 +31,16 @@ async fn main() -> std::io::Result<()> {
     let metrics = setup_metrics();
     let pool = PgPool::connect(&config.database_url).await.unwrap();
     migrate_db(&pool, config.db_migrate_on_start).await;
-    let user_repository = PostgresUserRepository::new(pool.clone());
+    let user_repository = PgUserRepository::new(pool.clone());
     let user_service = web::Data::new(UserServiceImpl::new(
         user_repository,
         config.jwt_encoding_key_secret.clone(),
         config.jwt_exp_duration,
     ));
-    let journal_repository = PostgresJournalRepository::new(pool.clone());
-    let journal_service = web::Data::new(JournalServiceImpl::new(journal_repository));
+    let event_repository = PgEventTypeRepository::new(pool.clone());
+    let journal_repository = PgJournalEntryRepository::new(pool.clone());
+    let journal_service =
+        web::Data::new(JournalServiceImpl::new(event_repository, journal_repository));
 
     HttpServer::new(move || {
         App::new()
