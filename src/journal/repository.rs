@@ -2,7 +2,7 @@ use crate::journal::model::{EventType, EventTypeId, JournalEntry, JournalEntryId
 use crate::user::model::UserId;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, Postgres, QueryBuilder};
+use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -32,7 +32,7 @@ pub trait EventTypeRepository {
 
     async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, sqlx::Error>;
 
-    async fn validate_tags(
+    async fn validate(
         &self,
         user_id: UserId,
         id: EventTypeId,
@@ -122,25 +122,25 @@ impl EventTypeRepository for PgEventTypeRepository {
         .map(|r| r.rows_affected() > 0)
     }
 
-    async fn validate_tags(
+    async fn validate(
         &self,
         user_id: UserId,
-        event_type_id: EventTypeId,
+        id: EventTypeId,
         tags: &[String],
     ) -> Result<bool, sqlx::Error> {
-        if tags.is_empty() {
-            return Ok(false);
+        let mut query: QueryBuilder<Postgres> =
+            QueryBuilder::new(r#"SELECT count(id) FROM event_type WHERE id = "#);
+        query.push_bind(id);
+        query.push(" AND user_id = ").push_bind(user_id);
+
+        if !tags.is_empty() {
+            query.push(" AND ").push_bind(tags).push(" <@ tags");
         }
 
-        sqlx::query!(
-            r#"SELECT count(id) FROM event_type WHERE id = $1 AND user_id = $2 AND $3 <@ tags"#,
-            event_type_id as EventTypeId,
-            user_id as UserId,
-            tags
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map(|record| record.count.unwrap_or(0).is_positive())
+        query.build().fetch_one(&self.pool).await.map(|row| {
+            let count: i64 = row.try_get("count").unwrap_or(0);
+            count.is_positive()
+        })
     }
 }
 
@@ -174,7 +174,6 @@ pub trait JournalEntryRepository {
         id: JournalEntryId,
         description: Option<&'a str>,
         tags: &[String],
-        created_at: Option<DateTime<Utc>>,
     ) -> Result<bool, sqlx::Error>;
 
     async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, sqlx::Error>;
@@ -279,14 +278,11 @@ impl JournalEntryRepository for PgJournalEntryRepository {
         id: JournalEntryId,
         description: Option<&'a str>,
         tags: &[String],
-        created_at: Option<DateTime<Utc>>,
     ) -> Result<bool, sqlx::Error> {
         sqlx::query!(
-            r#"UPDATE journal_entry SET description = $1, tags = $2, created_at = $3
-                WHERE id = $4 AND user_id = $5"#,
+            r#"UPDATE journal_entry SET description = $1, tags = $2 WHERE id = $3 AND user_id = $4"#,
             description,
             tags,
-            created_at,
             id as JournalEntryId,
             user_id as UserId
         )

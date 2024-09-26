@@ -1,4 +1,7 @@
-use crate::journal::model::{EventType, EventTypeData, EventTypeId};
+use crate::journal::model::{
+    EventType, EventTypeData, EventTypeId, JournalEntry, JournalEntryId, JournalEntryUpdate,
+    NewJournalEntry, SearchFilter,
+};
 use crate::journal::repository::{EventTypeRepository, JournalEntryRepository};
 use crate::model::AppError;
 use crate::user::model::UserId;
@@ -29,6 +32,37 @@ pub trait JournalService {
     ) -> Result<(), AppError>;
 
     async fn delete_event_type(&self, user_id: UserId, id: EventTypeId) -> Result<(), AppError>;
+
+    async fn find_journal_entry_by_id(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+    ) -> Result<JournalEntry, AppError>;
+
+    async fn find_journal_entries(
+        &self,
+        user_id: UserId,
+        filter: SearchFilter,
+    ) -> Result<Vec<JournalEntry>, AppError>;
+
+    async fn insert_journal_entry(
+        &self,
+        user_id: UserId,
+        entry: NewJournalEntry,
+    ) -> Result<JournalEntryId, AppError>;
+
+    async fn update_journal_entry(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+        entry: JournalEntryUpdate,
+    ) -> Result<(), AppError>;
+
+    async fn delete_journal_entry(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+    ) -> Result<(), AppError>;
 }
 
 pub struct JournalServiceImpl<A: EventTypeRepository, B: JournalEntryRepository> {
@@ -39,6 +73,20 @@ pub struct JournalServiceImpl<A: EventTypeRepository, B: JournalEntryRepository>
 impl<A: EventTypeRepository, B: JournalEntryRepository> JournalServiceImpl<A, B> {
     pub fn new(event_repository: A, journal_repository: B) -> Self {
         Self { event_repository, journal_repository }
+    }
+
+    async fn validate_event_type(
+        &self,
+        user_id: UserId,
+        id: EventTypeId,
+        tags: &[String],
+    ) -> Result<(), AppError> {
+        let valid = self.event_repository.validate(user_id, id, tags).await?;
+        if valid {
+            Ok(())
+        } else {
+            Err(AppError::EventTypeValidation)
+        }
     }
 }
 
@@ -99,6 +147,67 @@ where
 
     async fn delete_event_type(&self, user_id: UserId, id: EventTypeId) -> Result<(), AppError> {
         self.event_repository.delete(user_id, id).await?.then_some(()).ok_or(AppError::NotFound)
+    }
+
+    async fn find_journal_entry_by_id(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+    ) -> Result<JournalEntry, AppError> {
+        self.journal_repository.find_by_id(user_id, id).await?.ok_or(AppError::NotFound)
+    }
+
+    async fn find_journal_entries(
+        &self,
+        user_id: UserId,
+        filter: SearchFilter,
+    ) -> Result<Vec<JournalEntry>, AppError> {
+        Ok(self.journal_repository.find(user_id, &filter).await?)
+    }
+
+    async fn insert_journal_entry(
+        &self,
+        user_id: UserId,
+        entry: NewJournalEntry,
+    ) -> Result<JournalEntryId, AppError> {
+        self.validate_event_type(user_id, entry.event_type_id, &entry.tags).await?;
+
+        let entry_id = self
+            .journal_repository
+            .insert(
+                user_id,
+                entry.event_type_id,
+                entry.description.as_deref(),
+                &entry.tags,
+                entry.created_at,
+            )
+            .await?;
+        Ok(entry_id)
+    }
+
+    async fn update_journal_entry(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+        update: JournalEntryUpdate,
+    ) -> Result<(), AppError> {
+        let current =
+            self.journal_repository.find_by_id(user_id, id).await?.ok_or(AppError::NotFound)?;
+        self.validate_event_type(user_id, current.event_type_id, &update.tags).await?;
+
+        self.journal_repository
+            .update(user_id, id, update.description.as_deref(), &update.tags)
+            .await?
+            .then_some(())
+            .ok_or(AppError::NotFound)
+    }
+
+    async fn delete_journal_entry(
+        &self,
+        user_id: UserId,
+        id: JournalEntryId,
+    ) -> Result<(), AppError> {
+        self.journal_repository.delete(user_id, id).await?.then_some(()).ok_or(AppError::NotFound)
     }
 }
 

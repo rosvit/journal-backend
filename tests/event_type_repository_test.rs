@@ -5,12 +5,13 @@ use common::{
     ContainerCommand,
 };
 use ctor::{ctor, dtor};
-use journal_backend::journal::model::EventType;
+use journal_backend::journal::model::{EventType, EventTypeId};
 use journal_backend::journal::repository::{EventTypeRepository, PgEventTypeRepository};
 use journal_backend::user::model::UserId;
 use journal_backend::user::repository::{PgUserRepository, UserRepository};
 use lazy_static::lazy_static;
 use std::thread;
+use uuid::Uuid;
 
 lazy_static! {
     static ref CMD_IN: Channel<ContainerCommand> = channel();
@@ -92,7 +93,7 @@ async fn test_delete() {
 }
 
 #[tokio::test]
-async fn test_validate_tags() {
+async fn test_validate() {
     let fixture = setup_test().await;
     let event_repo = &fixture.event_repo;
     let user_id = fixture.default_user_id;
@@ -102,9 +103,26 @@ async fn test_validate_tags() {
         .unwrap();
 
     let res_false =
-        event_repo.validate_tags(user_id, event_id, &vec!["tag_a".to_string()]).await.unwrap();
-    let res_true =
-        event_repo.validate_tags(user_id, event_id, &vec!["tag2".to_string()]).await.unwrap();
+        event_repo.validate(user_id, event_id, &vec!["tag_a".to_string()]).await.unwrap();
+    let res_true = event_repo.validate(user_id, event_id, &vec!["tag2".to_string()]).await.unwrap();
+
+    assert!(!res_false);
+    assert!(res_true);
+}
+
+#[tokio::test]
+async fn test_validate_empty_tags() {
+    let fixture = setup_test().await;
+    let event_repo = &fixture.event_repo;
+    let user_id = fixture.default_user_id;
+    let event_id = event_repo
+        .insert(user_id, "test_event", &vec!["tag1".to_string(), "tag2".to_string()])
+        .await
+        .unwrap();
+    let other_event = EventTypeId::new(Uuid::new_v4());
+
+    let res_false = event_repo.validate(user_id, other_event, &vec![]).await.unwrap();
+    let res_true = event_repo.validate(user_id, event_id, &vec![]).await.unwrap();
 
     assert!(!res_false);
     assert!(res_true);

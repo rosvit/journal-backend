@@ -64,12 +64,10 @@ async fn test_update() {
     let event_id = fixture.default_event_type_id;
     let tags = vec!["tag1".to_string(), "tag2".to_string()];
     let now = Utc::now();
-    let updated_time = now.sub(Duration::from_secs(60));
     let id =
         journal_repo.insert(user_id, event_id, Some("test"), &Vec::new(), Some(now)).await.unwrap();
 
-    let update_res =
-        journal_repo.update(user_id, id, Some("updated"), &tags, Some(updated_time)).await.unwrap();
+    let update_res = journal_repo.update(user_id, id, Some("updated"), &tags).await.unwrap();
     assert!(update_res);
 
     let entry = journal_repo.find_by_id(user_id, id).await.unwrap().expect("not found");
@@ -79,7 +77,7 @@ async fn test_update() {
         event_type_id: event_id,
         description: Some("updated".to_string()),
         tags,
-        created_at: updated_time,
+        created_at: now,
     };
     assert_eq!(entry, expected);
 }

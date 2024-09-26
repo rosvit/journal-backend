@@ -67,9 +67,17 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/events")
                             .route(ROOT, web::get().to(find_user_event_types::<JournalSvc>))
                             .route(ROOT, web::post().to(insert_event_type::<JournalSvc>))
-                            .route("/{type_id}", web::get().to(find_event_type::<JournalSvc>))
-                            .route("/{type_id}", web::put().to(update_event_type::<JournalSvc>))
-                            .route("/{type_id}", web::delete().to(delete_event_type::<JournalSvc>)),
+                            .route("/{id}", web::get().to(find_event_type::<JournalSvc>))
+                            .route("/{id}", web::put().to(update_event_type::<JournalSvc>))
+                            .route("/{id}", web::delete().to(delete_event_type::<JournalSvc>)),
+                    )
+                    .service(
+                        web::scope("/entries")
+                            .route(ROOT, web::get().to(find_journal_entries::<JournalSvc>))
+                            .route(ROOT, web::post().to(insert_journal_entry::<JournalSvc>))
+                            .route("/{id}", web::get().to(find_journal_entry::<JournalSvc>))
+                            .route("/{id}", web::put().to(update_journal_entry::<JournalSvc>))
+                            .route("/{id}", web::delete().to(delete_journal_entry::<JournalSvc>)),
                     ),
             )
     })

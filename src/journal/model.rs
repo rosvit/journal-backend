@@ -4,6 +4,7 @@ use chrono::prelude::*;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use validator::{Validate, ValidationError};
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(transparent)]
@@ -47,14 +48,34 @@ pub struct JournalEntry {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Validate)]
 pub struct EventTypeData {
     pub name: String,
     #[serde(default)]
+    #[validate(custom(function = "validate_tags"))]
     pub tags: Vec<String>,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Validate)]
+pub struct NewJournalEntry {
+    pub event_type_id: EventTypeId,
+    pub description: Option<String>,
+    #[serde(default)]
+    #[validate(custom(function = "validate_tags"))]
+    pub tags: Vec<String>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Deserialize, Debug, Validate)]
+pub struct JournalEntryUpdate {
+    pub description: Option<String>,
+    #[serde(default)]
+    #[validate(custom(function = "validate_tags"))]
+    pub tags: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Default, Validate)]
+#[validate(schema(function = "validate_filters"))]
 pub struct SearchFilter {
     pub event_type_id: Option<EventTypeId>,
     #[serde(default)]
@@ -74,4 +95,20 @@ pub enum SortOrder {
     #[display("DESC")]
     #[serde(alias = "desc", alias = "DESC")]
     Desc,
+}
+
+fn validate_tags(tags: &[String]) -> Result<(), ValidationError> {
+    if tags.iter().any(|t| t.as_str().trim() == "") {
+        Err(ValidationError::new("tags"))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_filters(filter: &SearchFilter) -> Result<(), ValidationError> {
+    if let (Some(before), Some(after)) = (filter.before, filter.after) {
+        (before <= after).then_some(()).ok_or(ValidationError::new("before, after"))
+    } else {
+        Ok(())
+    }
 }

@@ -29,6 +29,8 @@ pub enum AppError {
     ProcessingError,
     #[error("some of the removed tags {0:?} are still used in journal entries")]
     TagsStillUsed(Vec<String>),
+    #[error("event type missing or some of the tags are not valid")]
+    EventTypeValidation,
     #[error(transparent)]
     JwtValidation(#[from] jsonwebtoken::errors::Error),
     #[error(transparent)]
@@ -39,8 +41,26 @@ pub enum AppError {
 
 impl From<validator::ValidationErrors> for AppError {
     fn from(errors: validator::ValidationErrors) -> Self {
-        let field_errors =
-            errors.field_errors().keys().map(|&k| InvalidField(k.to_string())).collect();
+        let struct_errors_key = "__all__";
+
+        let mut field_errors: Vec<InvalidField> = errors
+            .field_errors()
+            .keys()
+            .filter(|&&k| k != struct_errors_key)
+            .map(|&k| InvalidField(k.to_string()))
+            .collect();
+
+        let mut struct_errors: Vec<InvalidField> = errors
+            .field_errors()
+            .iter()
+            .find(|(&k, _)| k == struct_errors_key)
+            .map(|(_, &v)| v.iter().map(|e| InvalidField(e.code.to_string())).collect())
+            .unwrap_or_default();
+
+        if !struct_errors.is_empty() {
+            field_errors.append(&mut struct_errors);
+        }
+
         Self::Validation(field_errors)
     }
 }
@@ -53,6 +73,7 @@ impl ResponseError for AppError {
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::JwtValidation(_) => StatusCode::UNAUTHORIZED,
             AppError::TagsStillUsed(_) => StatusCode::CONFLICT,
+            AppError::EventTypeValidation => StatusCode::BAD_REQUEST,
             AppError::DatabaseError(sqlx::Error::RowNotFound) => StatusCode::NOT_FOUND,
             AppError::DatabaseError(sqlx::Error::Database(ref db_err)) => match db_err.kind() {
                 sqlx::error::ErrorKind::UniqueViolation => StatusCode::CONFLICT,
