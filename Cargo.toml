@@ -15,7 +15,7 @@ async-trait = "0.1.82"
 chrono = { version = "0.4.38", default-features = false, features = ["clock", "std", "serde"] }
 log = "0.4.22"
 env_logger = "0.11.5"
-dotenv = "0.15"
+dotenvy = "0.15.7"
 anyhow = "1.0.89"
 thiserror = "1.0.63"
 validator = { version = "0.18.1", features = ["derive"] }

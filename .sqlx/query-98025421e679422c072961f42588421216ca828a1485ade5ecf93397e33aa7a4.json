@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO journal_entry (user_id, event_type_id, description, tags, created_at)\n                VALUES ($1, $2, $3, $4, $5) RETURNING id as \"id: JournalEntryId\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: JournalEntryId",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "98025421e679422c072961f42588421216ca828a1485ade5ecf93397e33aa7a4"
+}

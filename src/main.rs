@@ -3,7 +3,7 @@ use actix_web::middleware::{from_fn, Logger};
 use actix_web::{web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use env_logger::Env;
 use journal_backend::journal::handler::*;
 use journal_backend::journal::repository::{PgEventTypeRepository, PgJournalEntryRepository};

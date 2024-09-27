@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO event_type (user_id, name, tags) VALUES ($1, $2, $3) RETURNING id as \"id: EventTypeId\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: EventTypeId",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e32bee6969255a9c3625c4722e95b0dbb6685a8a70f2c543f52db8eeb5e5b7b3"
+}
