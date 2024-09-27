@@ -50,6 +50,7 @@ pub struct JournalEntry {
 
 #[derive(Deserialize, Debug, Validate)]
 pub struct EventTypeData {
+    #[validate(custom(function = "validate_not_blank"))]
     pub name: String,
     #[serde(default)]
     #[validate(custom(function = "validate_tags"))]
@@ -97,8 +98,16 @@ pub enum SortOrder {
     Desc,
 }
 
+fn validate_not_blank(value: &str) -> Result<(), ValidationError> {
+    if value.trim().is_empty() {
+        Err(ValidationError::new("blank"))
+    } else {
+        Ok(())
+    }
+}
+
 fn validate_tags(tags: &[String]) -> Result<(), ValidationError> {
-    if tags.iter().any(|t| t.as_str().trim() == "") {
+    if tags.iter().any(|t| t.as_str().trim().is_empty()) {
         Err(ValidationError::new("tags"))
     } else {
         Ok(())
