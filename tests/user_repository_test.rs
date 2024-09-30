@@ -33,9 +33,9 @@ async fn test_insert_user() {
     let id = repo.insert(name, pass, email).await.unwrap();
     let user_from_db = repo.find_by_id(id).await.unwrap().expect("user not found");
 
-    assert_eq!(user_from_db.username, name);
-    assert_eq!(user_from_db.password, pass);
-    assert_eq!(user_from_db.email, email);
+    assert_eq!(name, user_from_db.username);
+    assert_eq!(pass, user_from_db.password);
+    assert_eq!(email, user_from_db.email);
 }
 
 #[tokio::test]
@@ -44,10 +44,10 @@ async fn test_find_id_and_password_by_username() {
 
     repo.insert("user1", "password1", "email1").await.unwrap();
     repo.insert("user2", "password2", "email2").await.unwrap();
+
     let found_password =
         repo.find_id_and_password_by_username("user1").await.unwrap().expect("user not found");
-
-    assert_eq!(found_password.1, "password1");
+    assert_eq!("password1", found_password.1);
 }
 
 #[tokio::test]
@@ -55,12 +55,12 @@ async fn test_update_password() {
     let repo = setup_user_repository().await;
     let id = repo.insert("user", "old", "email").await.unwrap();
     let user_from_db = repo.find_by_id(id).await.unwrap().expect("user not found");
-    assert_eq!(user_from_db.password, "old");
+    assert_eq!("old", user_from_db.password);
 
     let success = repo.update_password(id, "new").await.unwrap();
-    assert_eq!(success, true);
+    assert_eq!(true, success);
     let user_from_db = repo.find_by_id(id).await.unwrap().expect("user not found");
-    assert_eq!(user_from_db.password, "new");
+    assert_eq!("new", user_from_db.password);
 }
 
 async fn setup_user_repository() -> impl UserRepository {

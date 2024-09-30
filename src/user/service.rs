@@ -146,8 +146,7 @@ mod tests {
             email: email.to_string(),
         };
         let registered_id = service.register(user).await.unwrap();
-
-        assert_eq!(registered_id, user_id);
+        assert_eq!(user_id, registered_id);
     }
 
     #[tokio::test]
@@ -172,9 +171,9 @@ mod tests {
         .unwrap()
         .claims;
 
-        assert_eq!(result.token_type, "Bearer");
-        assert_eq!(result.expires_in, JWT_DURATION.as_secs());
-        assert_eq!(claims.sub, user_id);
+        assert_eq!("Bearer", result.token_type);
+        assert_eq!(JWT_DURATION.as_secs(), result.expires_in);
+        assert_eq!(user_id, claims.sub);
     }
 
     #[tokio::test]
@@ -189,8 +188,8 @@ mod tests {
                 id == &user_id && matches_hash
             })
             .return_once(|_, _| Ok(true));
-        let service = UserServiceImpl::new(mock_repository, JWT_SECRET.to_string(), JWT_DURATION);
 
+        let service = UserServiceImpl::new(mock_repository, JWT_SECRET.to_string(), JWT_DURATION);
         assert!(service.update_password(user_id, password.to_string()).await.unwrap())
     }
 
@@ -202,7 +201,7 @@ mod tests {
             UserServiceImpl::new(MockUserRepository::new(), JWT_SECRET.to_string(), JWT_DURATION);
 
         let jwt_claims = service.validate_token(&token).unwrap();
-        assert_eq!(jwt_claims.sub, user_id);
+        assert_eq!(user_id, jwt_claims.sub);
     }
 
     #[test]

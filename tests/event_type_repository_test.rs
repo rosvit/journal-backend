@@ -40,8 +40,7 @@ async fn test_find_by_user_id() {
     let _ = event_repo.insert(fixture.default_user_id, "other", &vec![]).await.unwrap();
 
     let events = event_repo.find_by_user_id(user_id).await.unwrap();
-
-    assert_eq!(events, vec![EventType { id, user_id, name: "test_event".to_string(), tags }]);
+    assert_eq!(vec![EventType { id, user_id, name: "test_event".to_string(), tags }], events);
 }
 
 #[tokio::test]
@@ -54,9 +53,9 @@ async fn test_insert() {
     let event_id = event_repo.insert(user_id, "test_event", &tags).await.unwrap();
 
     let event = event_repo.find_by_id(user_id, event_id).await.unwrap().expect("not found");
-    assert_eq!(event.user_id, user_id);
-    assert_eq!(event.name, "test_event");
-    assert_eq!(event.tags, tags);
+    assert_eq!(user_id, event.user_id);
+    assert_eq!("test_event", event.name);
+    assert_eq!(tags, event.tags);
 }
 
 #[tokio::test]
@@ -73,8 +72,8 @@ async fn test_update() {
 
     let updated = event_repo.find_by_id(user_id, id).await.unwrap().expect("not found");
     assert_eq!(
-        updated,
-        EventType { id, user_id, name: "new_name".to_string(), tags: vec!["new_tag".to_string()] }
+        EventType { id, user_id, name: "new_name".to_string(), tags: vec!["new_tag".to_string()] },
+        updated
     );
 }
 
@@ -89,7 +88,7 @@ async fn test_delete() {
     assert!(delete_res);
 
     let found = event_repo.find_by_id(user_id, id).await.unwrap();
-    assert_eq!(found, None);
+    assert_eq!(None, found);
 }
 
 #[tokio::test]

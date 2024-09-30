@@ -53,7 +53,7 @@ async fn test_insert() {
         tags,
         created_at: now,
     };
-    assert_eq!(entry, expected);
+    assert_eq!(expected, entry);
 }
 
 #[tokio::test]
@@ -79,7 +79,7 @@ async fn test_update() {
         tags,
         created_at: now,
     };
-    assert_eq!(entry, expected);
+    assert_eq!(expected, entry);
 }
 
 #[tokio::test]
@@ -94,7 +94,7 @@ async fn test_delete() {
     assert!(delete_res);
 
     let found = journal_repo.find_by_id(user_id, id).await.unwrap();
-    assert_eq!(found, None);
+    assert_eq!(None, found);
 }
 
 #[tokio::test]
@@ -117,10 +117,9 @@ async fn test_find_empty_filters() {
     let _ = journal_repo.insert(other_user, other_event, None, &vec![], None).await.unwrap();
 
     let entries = journal_repo.find(user_id, &SearchFilter::default()).await.unwrap();
-
     assert_eq!(
-        entries,
-        vec![JournalEntry { id, user_id, event_type_id, description, tags, created_at }]
+        vec![JournalEntry { id, user_id, event_type_id, description, tags, created_at }],
+        entries
     );
 }
 
@@ -154,10 +153,9 @@ async fn test_find_all_filters() {
     };
 
     let entries = journal_repo.find(user_id, &filter).await.unwrap();
-
     assert_eq!(
-        entries,
-        vec![JournalEntry { id, user_id, event_type_id, description, tags, created_at }]
+        vec![JournalEntry { id, user_id, event_type_id, description, tags, created_at }],
+        entries
     );
 }
 
