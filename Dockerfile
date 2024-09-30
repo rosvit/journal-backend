@@ -2,7 +2,7 @@
 FROM rust:1.80.1-slim as builder
 WORKDIR /app
 ADD . /app
-RUN sed -i '2d' .env
+RUN sed -i '/^DATABASE_URL/d' .env
 RUN cargo build --release
 
 # Prod stage
