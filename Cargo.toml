@@ -4,20 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.41.1", features = ["rt-multi-thread", "macros"] }
 actix-web = "4.9"
 actix-web-httpauth = "0.8.2"
 actix-cors = "0.7"
 actix-web-prom = { version = "0.9", features = ["process"] }
-serde = { version = "1.0.210", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
-async-trait = "0.1.82"
+async-trait = "0.1.83"
 chrono = { version = "0.4.38", default-features = false, features = ["clock", "std", "serde"] }
 log = "0.4.22"
 env_logger = "0.11.5"
 dotenvy = "0.15.7"
-anyhow = "1.0.90"
-thiserror = "1.0.63"
+anyhow = "1.0.93"
+thiserror = "1.0.69"
 validator = { version = "0.18.1", features = ["derive"] }
 derive_more = { version = "1", features = ["debug", "display"] }
 mime = "0.3.17"
@@ -26,7 +26,7 @@ argon2 = { version = "0.5.3", features = ["std"] }
 jsonwebtoken = { version = "9.3", default-features = false }
 
 [dev-dependencies]
-testcontainers-modules = { version = "0.11.3", features = ["postgres"] }
-mockall = "0.13"
+testcontainers-modules = { version = "0.11.4", features = ["postgres"] }
+mockall = "0.13.1"
 lazy_static = "1.5"
 ctor = "0.2.8"
