@@ -75,6 +75,11 @@ impl<A: EventTypeRepository, B: JournalEntryRepository> JournalServiceImpl<A, B>
         Self { event_repository, journal_repository }
     }
 
+    // NOTE: validation if all required tags are present in the event type should be done within a
+    // transaction and under lock before inserting/updating of entries to prevent concurrent updates
+    // of that event type. Here is very simplified check ignoring the possibility of concurrent
+    // updates, sufficient for the expected use-case of this service at this stage. At some point it
+    // may need to be addressed.
     async fn validate_event_type(
         &self,
         user_id: UserId,
@@ -124,6 +129,8 @@ where
         id: EventTypeId,
         event_type: EventTypeData,
     ) -> Result<(), AppError> {
+        // NOTE: similar to JournalServiceImpl::validate_event_type, this should use transaction
+        // and lock before update to prevent the concurrent modifications of the same event type.
         let current =
             self.event_repository.find_by_id(user_id, id).await?.ok_or(AppError::NotFound)?;
 
