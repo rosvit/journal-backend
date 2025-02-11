@@ -46,14 +46,14 @@ impl From<validator::ValidationErrors> for AppError {
         let mut field_errors: Vec<InvalidField> = errors
             .field_errors()
             .keys()
-            .filter(|&&k| k != struct_errors_key)
-            .map(|&k| InvalidField(k.to_string()))
+            .filter(|&k| k != struct_errors_key)
+            .map(|k| InvalidField(k.to_string()))
             .collect();
 
         let mut struct_errors: Vec<InvalidField> = errors
             .field_errors()
             .iter()
-            .find(|(&k, _)| k == struct_errors_key)
+            .find(|(&ref k, _)| k == struct_errors_key)
             .map(|(_, &v)| v.iter().map(|e| InvalidField(e.code.to_string())).collect())
             .unwrap_or_default();
 
