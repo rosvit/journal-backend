@@ -1,8 +1,9 @@
 use crate::journal::model::{EventType, EventTypeId, JournalEntry, JournalEntryId, SearchFilter};
+use crate::model::AppError;
 use crate::user::model::UserId;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, Postgres, QueryBuilder, Row};
+use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -11,16 +12,16 @@ pub trait EventTypeRepository {
         &self,
         user_id: UserId,
         id: EventTypeId,
-    ) -> Result<Option<EventType>, sqlx::Error>;
+    ) -> Result<Option<EventType>, AppError>;
 
-    async fn find_by_user_id(&self, user_id: UserId) -> Result<Vec<EventType>, sqlx::Error>;
+    async fn find_by_user_id(&self, user_id: UserId) -> Result<Vec<EventType>, AppError>;
 
     async fn insert(
         &self,
         user_id: UserId,
         name: &str,
         tags: &[String],
-    ) -> Result<EventTypeId, sqlx::Error>;
+    ) -> Result<EventTypeId, AppError>;
 
     async fn update(
         &self,
@@ -28,16 +29,9 @@ pub trait EventTypeRepository {
         id: EventTypeId,
         name: &str,
         tags: &[String],
-    ) -> Result<bool, sqlx::Error>;
+    ) -> Result<bool, AppError>;
 
-    async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, sqlx::Error>;
-
-    async fn validate(
-        &self,
-        user_id: UserId,
-        id: EventTypeId,
-        tags: &[String],
-    ) -> Result<bool, sqlx::Error>;
+    async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, AppError>;
 }
 
 pub struct PgEventTypeRepository {
@@ -56,8 +50,8 @@ impl EventTypeRepository for PgEventTypeRepository {
         &self,
         user_id: UserId,
         id: EventTypeId,
-    ) -> Result<Option<EventType>, sqlx::Error> {
-        sqlx::query_as!(
+    ) -> Result<Option<EventType>, AppError> {
+        let result = sqlx::query_as!(
             EventType,
             r#"SELECT id as "id: _", user_id as "user_id: _", name, tags FROM event_type
                 WHERE id = $1 AND user_id = $2"#,
@@ -65,17 +59,21 @@ impl EventTypeRepository for PgEventTypeRepository {
             user_id as UserId
         )
         .fetch_optional(&self.pool)
-        .await
+        .await?;
+
+        Ok(result)
     }
 
-    async fn find_by_user_id(&self, user_id: UserId) -> Result<Vec<EventType>, sqlx::Error> {
-        sqlx::query_as!(
+    async fn find_by_user_id(&self, user_id: UserId) -> Result<Vec<EventType>, AppError> {
+        let result = sqlx::query_as!(
             EventType,
             r#"SELECT id as "id: _", user_id as "user_id: _", name, tags FROM event_type WHERE user_id = $1"#,
             user_id as UserId,
         )
             .fetch_all(&self.pool)
-            .await
+            .await?;
+
+        Ok(result)
     }
 
     async fn insert(
@@ -83,13 +81,15 @@ impl EventTypeRepository for PgEventTypeRepository {
         user_id: UserId,
         name: &str,
         tags: &[String],
-    ) -> Result<EventTypeId, sqlx::Error> {
-        sqlx::query!(
+    ) -> Result<EventTypeId, AppError> {
+        let result = sqlx::query!(
             r#"INSERT INTO event_type (user_id, name, tags) VALUES ($1, $2, $3) RETURNING id as "id: EventTypeId""#,
             user_id as UserId, name, tags)
             .fetch_one(&self.pool)
             .await
-            .map(|record| record.id)
+            .map(|record| record.id)?;
+
+        Ok(result)
     }
 
     async fn update(
@@ -98,49 +98,54 @@ impl EventTypeRepository for PgEventTypeRepository {
         id: EventTypeId,
         name: &str,
         tags: &[String],
-    ) -> Result<bool, sqlx::Error> {
-        sqlx::query!(
+    ) -> Result<bool, AppError> {
+        let mut tx = self.pool.begin().await?;
+
+        let missing_used_tags = sqlx::query!(
+            r#"
+            SELECT array(SELECT tag_row
+                         FROM (SELECT DISTINCT unnest(tags) as tag_row
+                               FROM journal_entry
+                               WHERE user_id = $1 AND event_type_id = $2) as event_tags
+                         WHERE event_tags.tag_row != ALL ($3)) as used_tags"#,
+            user_id as UserId,
+            id as EventTypeId,
+            tags
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map(|r| r.used_tags.unwrap_or_default())?;
+
+        if !missing_used_tags.is_empty() {
+            return Err(AppError::TagsStillUsed(missing_used_tags));
+        }
+
+        let result = sqlx::query!(
             r#"UPDATE event_type SET name = $1, tags = $2 WHERE id = $3 AND user_id = $4"#,
             name,
             tags,
             id as EventTypeId,
             user_id as UserId
         )
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
-        .map(|r| r.rows_affected() > 0)
+        .map(|r| r.rows_affected() > 0)?;
+
+        tx.commit().await?;
+        Ok(result)
     }
 
-    async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, sqlx::Error> {
-        sqlx::query!(
+    async fn delete(&self, user_id: UserId, id: EventTypeId) -> Result<bool, AppError> {
+        let result = sqlx::query!(
             r#"DELETE FROM event_type WHERE id = $1 and user_id = $2"#,
             id as EventTypeId,
             user_id as UserId
         )
         .execute(&self.pool)
         .await
-        .map(|r| r.rows_affected() > 0)
-    }
+        .map(|r| r.rows_affected() > 0)?;
 
-    async fn validate(
-        &self,
-        user_id: UserId,
-        id: EventTypeId,
-        tags: &[String],
-    ) -> Result<bool, sqlx::Error> {
-        let mut query: QueryBuilder<Postgres> =
-            QueryBuilder::new(r#"SELECT count(id) FROM event_type WHERE id = "#);
-        query.push_bind(id);
-        query.push(" AND user_id = ").push_bind(user_id);
-
-        if !tags.is_empty() {
-            query.push(" AND ").push_bind(tags).push(" <@ tags");
-        }
-
-        query.build().fetch_one(&self.pool).await.map(|row| {
-            let count: i64 = row.try_get("count").unwrap_or(0);
-            count.is_positive()
-        })
+        Ok(result)
     }
 }
 
@@ -151,13 +156,13 @@ pub trait JournalEntryRepository {
         &self,
         user_id: UserId,
         id: JournalEntryId,
-    ) -> Result<Option<JournalEntry>, sqlx::Error>;
+    ) -> Result<Option<JournalEntry>, AppError>;
 
     async fn find(
         &self,
         user_id: UserId,
         filter: &SearchFilter,
-    ) -> Result<Vec<JournalEntry>, sqlx::Error>;
+    ) -> Result<Vec<JournalEntry>, AppError>;
 
     async fn insert<'a>(
         &self,
@@ -166,7 +171,7 @@ pub trait JournalEntryRepository {
         description: Option<&'a str>,
         tags: &[String],
         created_at: Option<DateTime<Utc>>,
-    ) -> Result<JournalEntryId, sqlx::Error>;
+    ) -> Result<JournalEntryId, AppError>;
 
     async fn update<'a>(
         &self,
@@ -174,15 +179,9 @@ pub trait JournalEntryRepository {
         id: JournalEntryId,
         description: Option<&'a str>,
         tags: &[String],
-    ) -> Result<bool, sqlx::Error>;
+    ) -> Result<bool, AppError>;
 
-    async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, sqlx::Error>;
-
-    async fn contains_with_tags(
-        &self,
-        event_type_id: EventTypeId,
-        tags: &[String],
-    ) -> Result<bool, sqlx::Error>;
+    async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, AppError>;
 }
 
 pub struct PgJournalEntryRepository {
@@ -193,6 +192,30 @@ impl PgJournalEntryRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    /// Checks if a provided event type exists and contains the required tags for the new or
+    /// updated journal entry.
+    async fn references_valid_event_type(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        user_id: UserId,
+        id: EventTypeId,
+        tags: &[String],
+    ) -> Result<bool, AppError> {
+        let mut query: QueryBuilder<Postgres> =
+            QueryBuilder::new(r#"SELECT id FROM event_type WHERE id = "#);
+        query.push_bind(id);
+        query.push(" AND user_id = ").push_bind(user_id);
+
+        if !tags.is_empty() {
+            query.push(" AND ").push_bind(tags).push(" <@ tags");
+        }
+
+        query.push(" FOR UPDATE");
+
+        let result = query.build().fetch_optional(&mut **tx).await?;
+        Ok(result.is_some())
+    }
 }
 
 #[async_trait]
@@ -201,8 +224,8 @@ impl JournalEntryRepository for PgJournalEntryRepository {
         &self,
         user_id: UserId,
         id: JournalEntryId,
-    ) -> Result<Option<JournalEntry>, sqlx::Error> {
-        sqlx::query_as!(
+    ) -> Result<Option<JournalEntry>, AppError> {
+        let result = sqlx::query_as!(
             JournalEntry,
             r#"SELECT id as "id: _", user_id as "user_id: _", event_type_id as "event_type_id: _",
                 description, tags, created_at
@@ -211,14 +234,16 @@ impl JournalEntryRepository for PgJournalEntryRepository {
             user_id as UserId
         )
         .fetch_optional(&self.pool)
-        .await
+        .await?;
+
+        Ok(result)
     }
 
     async fn find(
         &self,
         user_id: UserId,
         filter: &SearchFilter,
-    ) -> Result<Vec<JournalEntry>, sqlx::Error> {
+    ) -> Result<Vec<JournalEntry>, AppError> {
         let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
             r#"SELECT id, user_id, event_type_id, description, tags, created_at
                 FROM journal_entry WHERE user_id = "#,
@@ -247,7 +272,8 @@ impl JournalEntryRepository for PgJournalEntryRepository {
             query.push(" LIMIT ").push(limit);
         };
 
-        query.build_query_as::<JournalEntry>().fetch_all(&self.pool).await
+        let result = query.build_query_as::<JournalEntry>().fetch_all(&self.pool).await?;
+        Ok(result)
     }
 
     async fn insert<'a>(
@@ -257,8 +283,13 @@ impl JournalEntryRepository for PgJournalEntryRepository {
         description: Option<&'a str>,
         tags: &[String],
         created_at: Option<DateTime<Utc>>,
-    ) -> Result<JournalEntryId, sqlx::Error> {
-        sqlx::query!(
+    ) -> Result<JournalEntryId, AppError> {
+        let mut tx = self.pool.begin().await?;
+        if !self.references_valid_event_type(&mut tx, user_id, event_type_id, tags).await? {
+            return Err(AppError::EventTypeValidation);
+        }
+
+        let result = sqlx::query!(
             r#"INSERT INTO journal_entry (user_id, event_type_id, description, tags, created_at)
                 VALUES ($1, $2, $3, $4, $5) RETURNING id as "id: JournalEntryId""#,
             user_id as UserId,
@@ -267,9 +298,12 @@ impl JournalEntryRepository for PgJournalEntryRepository {
             tags,
             created_at.unwrap_or(Utc::now())
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *tx)
         .await
-        .map(|record| record.id)
+        .map(|record| record.id)?;
+
+        tx.commit().await?;
+        Ok(result)
     }
 
     async fn update<'a>(
@@ -278,46 +312,45 @@ impl JournalEntryRepository for PgJournalEntryRepository {
         id: JournalEntryId,
         description: Option<&'a str>,
         tags: &[String],
-    ) -> Result<bool, sqlx::Error> {
-        sqlx::query!(
+    ) -> Result<bool, AppError> {
+        let mut tx = self.pool.begin().await?;
+        let event_type_id = sqlx::query!(
+            r#"SELECT id, event_type_id as "event_type_id: EventTypeId" FROM journal_entry WHERE id = $1 FOR UPDATE"#,
+            id as JournalEntryId
+        )
+            .fetch_one(&mut *tx)
+            .await
+            .map(|record| record.event_type_id)?;
+
+        if !self.references_valid_event_type(&mut tx, user_id, event_type_id, tags).await? {
+            return Err(AppError::EventTypeValidation);
+        }
+
+        let result = sqlx::query!(
             r#"UPDATE journal_entry SET description = $1, tags = $2 WHERE id = $3 AND user_id = $4"#,
             description,
             tags,
             id as JournalEntryId,
             user_id as UserId
         )
-        .execute(&self.pool)
-        .await
-        .map(|r| r.rows_affected() > 0)
+            .execute(&mut *tx)
+            .await
+            .map(|r| r.rows_affected() > 0)?;
+
+        tx.commit().await?;
+        Ok(result)
     }
 
-    async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, sqlx::Error> {
-        sqlx::query!(
+    async fn delete(&self, user_id: UserId, id: JournalEntryId) -> Result<bool, AppError> {
+        let result = sqlx::query!(
             r#"DELETE FROM journal_entry WHERE id = $1 and user_id = $2"#,
             id as JournalEntryId,
             user_id as UserId
         )
         .execute(&self.pool)
         .await
-        .map(|r| r.rows_affected() > 0)
-    }
+        .map(|r| r.rows_affected() > 0)?;
 
-    async fn contains_with_tags(
-        &self,
-        event_type_id: EventTypeId,
-        tags: &[String],
-    ) -> Result<bool, sqlx::Error> {
-        if tags.is_empty() {
-            return Ok(false);
-        }
-
-        sqlx::query!(
-            r#"SELECT count(id) FROM journal_entry WHERE event_type_id = $1 AND tags && $2"#,
-            event_type_id as EventTypeId,
-            tags
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map(|record| record.count.unwrap_or(0).is_positive())
+        Ok(result)
     }
 }

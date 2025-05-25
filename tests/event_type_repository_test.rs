@@ -5,13 +5,13 @@ use common::{
     ContainerCommand,
 };
 use ctor::{ctor, dtor};
-use journal_backend::journal::model::{EventType, EventTypeId};
-use journal_backend::journal::repository::{EventTypeRepository, PgEventTypeRepository};
+use journal_backend::journal::model::EventType;
+use journal_backend::journal::repository::*;
+use journal_backend::model::AppError;
 use journal_backend::user::model::UserId;
 use journal_backend::user::repository::{PgUserRepository, UserRepository};
 use lazy_static::lazy_static;
 use std::thread;
-use uuid::Uuid;
 
 lazy_static! {
     static ref CMD_IN: Channel<ContainerCommand> = channel();
@@ -78,6 +78,51 @@ async fn test_update() {
 }
 
 #[tokio::test]
+async fn test_update_attempt_remove_used_tag() {
+    let fixture = setup_test().await;
+    let event_repo = &fixture.event_repo;
+    let user_id = fixture.default_user_id;
+    let id = event_repo
+        .insert(user_id, "test_event", &vec!["tag1".to_string(), "tag2".to_string()])
+        .await
+        .unwrap();
+    fixture
+        .journal_repo
+        .insert(user_id, id, Some("test"), &vec!["tag2".to_string()], None)
+        .await
+        .unwrap();
+
+    let res_err = event_repo.update(user_id, id, "new", &vec!["new".to_string()]).await;
+    assert!(matches!(res_err, Err(AppError::TagsStillUsed(_))));
+    if let Err(AppError::TagsStillUsed(tags)) = res_err {
+        assert_eq!(vec!["tag2".to_string()], tags);
+    }
+}
+
+#[tokio::test]
+async fn test_update_remove_unused_tag() {
+    let fixture = setup_test().await;
+    let event_repo = &fixture.event_repo;
+    let user_id = fixture.default_user_id;
+    let id = event_repo
+        .insert(user_id, "test_event", &vec!["tag1".to_string(), "tag2".to_string()])
+        .await
+        .unwrap();
+    fixture
+        .journal_repo
+        .insert(user_id, id, Some("test"), &vec!["tag1".to_string()], None)
+        .await
+        .unwrap();
+
+    event_repo.update(user_id, id, "new", &vec!["tag1".to_string()]).await.unwrap();
+    let updated = event_repo.find_by_id(user_id, id).await.unwrap().expect("not found");
+    assert_eq!(
+        EventType { id, user_id, name: "new".to_string(), tags: vec!["tag1".to_string()] },
+        updated
+    );
+}
+
+#[tokio::test]
 async fn test_delete() {
     let fixture = setup_test().await;
     let event_repo = &fixture.event_repo;
@@ -91,54 +136,21 @@ async fn test_delete() {
     assert_eq!(None, found);
 }
 
-#[tokio::test]
-async fn test_validate() {
-    let fixture = setup_test().await;
-    let event_repo = &fixture.event_repo;
-    let user_id = fixture.default_user_id;
-    let event_id = event_repo
-        .insert(user_id, "test_event", &vec!["tag1".to_string(), "tag2".to_string()])
-        .await
-        .unwrap();
-
-    let res_false =
-        event_repo.validate(user_id, event_id, &vec!["tag_a".to_string()]).await.unwrap();
-    let res_true = event_repo.validate(user_id, event_id, &vec!["tag2".to_string()]).await.unwrap();
-
-    assert!(!res_false);
-    assert!(res_true);
-}
-
-#[tokio::test]
-async fn test_validate_empty_tags() {
-    let fixture = setup_test().await;
-    let event_repo = &fixture.event_repo;
-    let user_id = fixture.default_user_id;
-    let event_id = event_repo
-        .insert(user_id, "test_event", &vec!["tag1".to_string(), "tag2".to_string()])
-        .await
-        .unwrap();
-    let other_event = EventTypeId::new(Uuid::new_v4());
-
-    let res_false = event_repo.validate(user_id, other_event, &vec![]).await.unwrap();
-    let res_true = event_repo.validate(user_id, event_id, &vec![]).await.unwrap();
-
-    assert!(!res_false);
-    assert!(res_true);
-}
-
-struct TestFixture<A: UserRepository, B: EventTypeRepository> {
-    user_repo: A,
-    event_repo: B,
+struct TestFixture<U: UserRepository, E: EventTypeRepository, J: JournalEntryRepository> {
+    user_repo: U,
+    event_repo: E,
+    journal_repo: J,
     default_user_id: UserId,
 }
 
-async fn setup_test() -> TestFixture<PgUserRepository, PgEventTypeRepository> {
+async fn setup_test(
+) -> TestFixture<PgUserRepository, PgEventTypeRepository, PgJournalEntryRepository> {
     let port = get_pg_port(&CMD_IN, &PG_PORT).await;
     let pool = create_pg_pool(port).await;
     let user_repo = PgUserRepository::new(pool.clone());
     let event_repo = PgEventTypeRepository::new(pool.clone());
+    let journal_repo = PgJournalEntryRepository::new(pool.clone());
     let default_user_id = user_repo.insert("default", "default", "default").await.unwrap();
 
-    TestFixture { user_repo, event_repo, default_user_id }
+    TestFixture { user_repo, event_repo, journal_repo, default_user_id }
 }

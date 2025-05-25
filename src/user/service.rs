@@ -35,9 +35,9 @@ impl<T: UserRepository> UserServiceImpl<T> {
 #[async_trait]
 impl<T: UserRepository + Send + Sync> UserService for UserServiceImpl<T> {
     async fn register(&self, user: NewUser) -> Result<UserId, AppError> {
-        // NOTE: Since argon2 hashing is expensive CPU-bound computation, it would be better to
+        // NOTE: Since argon2 hashing is an expensive CPU-bound computation, it would be better to
         // spawn it on rayon's thread pool, which is suitable for this type of tasks.
-        // But for purposes of this application, it should be OK-ish to use spawn_blocking.
+        // But for the purposes of this application, it should be OK-ish to use spawn_blocking.
         // Further improvement could be using tokio::sync::Semaphore to limit the number of requests.
         let password_hash = tokio::task::spawn_blocking(move || hash_password(&user.password))
             .await

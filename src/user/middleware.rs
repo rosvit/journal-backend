@@ -26,7 +26,7 @@ pub async fn access_token_validator<T: UserService + 'static>(
     }
 }
 
-/// Middleware function to check if caller can access the requested resource.
+/// Middleware function to check if the caller can access the requested resource.
 /// If both {user_id} path parameter and UserId in request data are present, it checks if they match.
 pub async fn validate_caller_id(
     req: ServiceRequest,

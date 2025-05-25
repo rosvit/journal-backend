@@ -3,9 +3,9 @@ use actix_web::{HttpResponse, HttpResponseBuilder, ResponseError};
 use serde::Serialize;
 use std::time::Duration;
 
-// Ideally there should be a proc_macro_derive for this marker trait, but since it would require
-// a separate crate of proc-macro type, the overhead of such macro is not worth for a small project
-// like this.
+// Ideally, there should be a proc_macro_derive for this marker trait, but since it would require
+// a separate crate of a proc-macro type, the overhead of such a macro is not worth for a small
+// project like this.
 pub trait IdType {}
 
 #[derive(Serialize, Debug)]
@@ -53,7 +53,7 @@ impl From<validator::ValidationErrors> for AppError {
         let mut struct_errors: Vec<InvalidField> = errors
             .field_errors()
             .iter()
-            .find(|(&ref k, _)| k == struct_errors_key)
+            .find(|(k, _)| *k == struct_errors_key)
             .map(|(_, &v)| v.iter().map(|e| InvalidField(e.code.to_string())).collect())
             .unwrap_or_default();
 

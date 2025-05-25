@@ -10,6 +10,7 @@ use journal_backend::journal::model::{EventTypeId, JournalEntry, SearchFilter, S
 use journal_backend::journal::repository::{
     EventTypeRepository, JournalEntryRepository, PgEventTypeRepository, PgJournalEntryRepository,
 };
+use journal_backend::model::AppError;
 use journal_backend::user::model::UserId;
 use journal_backend::user::repository::{PgUserRepository, UserRepository};
 use lazy_static::lazy_static;
@@ -57,6 +58,19 @@ async fn test_insert() {
 }
 
 #[tokio::test]
+async fn test_insert_with_invalid_tag() {
+    let fixture = setup_test().await;
+    let journal_repo = &fixture.journal_repo;
+    let user_id = fixture.default_user_id;
+    let event_id = fixture.default_event_type_id;
+    let tags = vec!["tag1".to_string(), "new1".to_string()];
+    let now = Utc::now();
+
+    let res_err = journal_repo.insert(user_id, event_id, Some("test"), &tags, Some(now)).await;
+    assert!(matches!(res_err, Err(AppError::EventTypeValidation)));
+}
+
+#[tokio::test]
 async fn test_update() {
     let fixture = setup_test().await;
     let journal_repo = &fixture.journal_repo;
@@ -80,6 +94,21 @@ async fn test_update() {
         created_at: now,
     };
     assert_eq!(expected, entry);
+}
+
+#[tokio::test]
+async fn test_update_with_invalid_tag() {
+    let fixture = setup_test().await;
+    let journal_repo = &fixture.journal_repo;
+    let user_id = fixture.default_user_id;
+    let event_id = fixture.default_event_type_id;
+    let tags = vec!["tag1".to_string(), "unknown".to_string()];
+    let now = Utc::now();
+    let id =
+        journal_repo.insert(user_id, event_id, Some("test"), &Vec::new(), Some(now)).await.unwrap();
+
+    let res_err = journal_repo.update(user_id, id, Some("updated"), &tags).await;
+    assert!(matches!(res_err, Err(AppError::EventTypeValidation)));
 }
 
 #[tokio::test]
@@ -111,7 +140,7 @@ async fn test_find_empty_filters() {
         .await
         .unwrap();
 
-    // entry for other user that shouldn't be found by filter
+    // entry for another user that shouldn't be found by filter
     let other_user = fixture.user_repo.insert("other", "other", "other").await.unwrap();
     let other_event = fixture.event_repo.insert(other_user, "other", &vec![]).await.unwrap();
     let _ = journal_repo.insert(other_user, other_event, None, &vec![], None).await.unwrap();
@@ -159,35 +188,10 @@ async fn test_find_all_filters() {
     );
 }
 
-#[tokio::test]
-async fn test_contains_with_tags() {
-    let fixture = setup_test().await;
-    let journal_repo = &fixture.journal_repo;
-    let user_id = fixture.default_user_id;
-    let event_id = fixture.default_event_type_id;
-    let tags = vec!["test".to_string(), "tag".to_string(), "super".to_string()];
-    let now = Utc::now();
-
-    let _ = journal_repo.insert(user_id, event_id, None, &vec![], None).await.unwrap();
-    let _ = journal_repo.insert(user_id, event_id, None, &tags, Some(now)).await.unwrap();
-
-    let should_contain = journal_repo
-        .contains_with_tags(event_id, &vec!["tag".to_string(), "super".to_string()])
-        .await
-        .unwrap();
-    let should_not_contain =
-        journal_repo.contains_with_tags(event_id, &vec!["other".to_string()]).await.unwrap();
-    let empty = journal_repo.contains_with_tags(event_id, &vec![]).await.unwrap();
-
-    assert!(should_contain);
-    assert!(!should_not_contain);
-    assert!(!empty);
-}
-
-struct TestFixture<A: UserRepository, B: EventTypeRepository, C: JournalEntryRepository> {
-    user_repo: A,
-    event_repo: B,
-    journal_repo: C,
+struct TestFixture<U: UserRepository, E: EventTypeRepository, J: JournalEntryRepository> {
+    user_repo: U,
+    event_repo: E,
+    journal_repo: J,
     default_user_id: UserId,
     default_event_type_id: EventTypeId,
 }
