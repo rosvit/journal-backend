@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.45", features = ["rt-multi-thread", "macros"] }
-actix-web = "4.10"
+actix-web = "4.11"
 actix-web-httpauth = "0.8.2"
 actix-cors = "0.7"
 actix-web-prom = { version = "0.10", features = ["process"] }
@@ -21,7 +21,7 @@ thiserror = "2.0.12"
 validator = { version = "0.20.0", features = ["derive"] }
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
 mime = "0.3.17"
-uuid = { version = "1.16", features = ["v4", "fast-rng", "serde"] }
+uuid = { version = "1.17", features = ["v4", "fast-rng", "serde"] }
 argon2 = { version = "0.5.3", features = ["std"] }
 jsonwebtoken = { version = "9.3.1", default-features = false }
 
