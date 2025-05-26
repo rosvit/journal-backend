@@ -101,14 +101,22 @@ impl EventTypeRepository for PgEventTypeRepository {
     ) -> Result<bool, AppError> {
         let mut tx = self.pool.begin().await?;
 
+        // Check if the given event type belongs to the user and lock it for update.
+        sqlx::query!(
+            r#"SELECT id FROM event_type where id = $1 AND user_id = $2 FOR UPDATE"#,
+            id as EventTypeId,
+            user_id as UserId
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
         let missing_used_tags = sqlx::query!(
             r#"
             SELECT array(SELECT tag_row
                          FROM (SELECT DISTINCT unnest(tags) as tag_row
                                FROM journal_entry
-                               WHERE user_id = $1 AND event_type_id = $2) as event_tags
-                         WHERE event_tags.tag_row != ALL ($3)) as used_tags"#,
-            user_id as UserId,
+                               WHERE event_type_id = $1) as event_tags
+                         WHERE event_tags.tag_row != ALL ($2)) as used_tags"#,
             id as EventTypeId,
             tags
         )
@@ -121,11 +129,10 @@ impl EventTypeRepository for PgEventTypeRepository {
         }
 
         let result = sqlx::query!(
-            r#"UPDATE event_type SET name = $1, tags = $2 WHERE id = $3 AND user_id = $4"#,
+            r#"UPDATE event_type SET name = $1, tags = $2 WHERE id = $3"#,
             name,
             tags,
-            id as EventTypeId,
-            user_id as UserId
+            id as EventTypeId
         )
         .execute(&mut *tx)
         .await

@@ -12,6 +12,7 @@ use journal_backend::user::model::UserId;
 use journal_backend::user::repository::{PgUserRepository, UserRepository};
 use lazy_static::lazy_static;
 use std::thread;
+use uuid::Uuid;
 
 lazy_static! {
     static ref CMD_IN: Channel<ContainerCommand> = channel();
@@ -75,6 +76,23 @@ async fn test_update() {
         EventType { id, user_id, name: "new_name".to_string(), tags: vec!["new_tag".to_string()] },
         updated
     );
+}
+
+#[tokio::test]
+async fn test_update_attempt_wrong_user_id() {
+    let fixture = setup_test().await;
+    let event_repo = &fixture.event_repo;
+    let user_id = fixture.default_user_id;
+    let id = event_repo
+        .insert(user_id, "test_event", &vec!["tag1".to_string(), "tag2".to_string()])
+        .await
+        .unwrap();
+
+    let other_user_id = UserId::new(Uuid::new_v4());
+    let res_err =
+        event_repo.update(other_user_id, id, "new_name", &vec!["new_tag".to_string()]).await;
+
+    assert!(matches!(res_err, Err(AppError::DatabaseError(sqlx::Error::RowNotFound))));
 }
 
 #[tokio::test]
