@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT array(SELECT tag_row\n                         FROM (SELECT DISTINCT unnest(tags) as tag_row\n                               FROM journal_entry\n                               WHERE event_type_id = $1) as event_tags\n                         WHERE event_tags.tag_row != ALL ($2)) as used_tags",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "used_tags",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d26ce97af2b0b4b4c408bc7c15069c631a11fecedbf9dd7cba4859747fe5777c"
+}
