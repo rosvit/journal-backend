@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.45", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.47", features = ["rt-multi-thread", "macros"] }
 actix-web = "4.11"
 actix-web-httpauth = "0.8.2"
 actix-cors = "0.7"
@@ -21,7 +21,7 @@ thiserror = "2.0.12"
 validator = { version = "0.20.0", features = ["derive"] }
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
 mime = "0.3.17"
-uuid = { version = "1.17", features = ["v4", "fast-rng", "serde"] }
+uuid = { version = "1.18", features = ["v4", "fast-rng", "serde"] }
 argon2 = { version = "0.5.3", features = ["std"] }
 jsonwebtoken = { version = "9.3.1", default-features = false }
 
@@ -29,4 +29,4 @@ jsonwebtoken = { version = "9.3.1", default-features = false }
 testcontainers-modules = { version = "0.12", features = ["postgres"] }
 mockall = "0.13.1"
 lazy_static = "1.5"
-ctor = "0.4"
+ctor = "0.5"
