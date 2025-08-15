@@ -4,7 +4,7 @@ use crate::user::service::UserService;
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::middleware::Next;
-use actix_web::{web, HttpMessage};
+use actix_web::{HttpMessage, web};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use log::debug;
 use uuid::Uuid;

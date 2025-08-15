@@ -4,7 +4,7 @@ use crate::journal::model::{
 use crate::journal::service::JournalService;
 use crate::model::{AppError, IdResponse};
 use crate::user::model::UserId;
-use actix_web::{web, HttpResponse};
+use actix_web::{HttpResponse, web};
 use validator::Validate;
 
 pub async fn find_event_type<T: JournalService>(

@@ -1,8 +1,8 @@
 pub mod common;
 
 use common::{
-    channel, clean_up, create_pg_pool, execute_blocking, get_pg_port, start_pg_container, Channel,
-    ContainerCommand,
+    Channel, ContainerCommand, channel, clean_up, create_pg_pool, execute_blocking, get_pg_port,
+    start_pg_container,
 };
 use ctor::{ctor, dtor};
 use journal_backend::user::repository::{PgUserRepository, UserRepository};

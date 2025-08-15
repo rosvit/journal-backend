@@ -99,11 +99,7 @@ pub enum SortOrder {
 }
 
 fn validate_not_blank(value: &str) -> Result<(), ValidationError> {
-    if value.trim().is_empty() {
-        Err(ValidationError::new("blank"))
-    } else {
-        Ok(())
-    }
+    if value.trim().is_empty() { Err(ValidationError::new("blank")) } else { Ok(()) }
 }
 
 fn validate_tags(tags: &[String]) -> Result<(), ValidationError> {

@@ -2,13 +2,13 @@ use crate::model::AppError;
 use crate::user::model::{JwtClaims, LoginResponse, NewUser, UserId};
 use crate::user::repository::UserRepository;
 use anyhow::Context;
+use argon2::password_hash::SaltString;
 use argon2::password_hash::errors::Error::Password as InvalidPassword;
 use argon2::password_hash::rand_core::OsRng;
-use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
 use chrono::prelude::*;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use std::ops::Add;
 use std::time::Duration;
 
@@ -119,7 +119,7 @@ fn encode_jwt(
 mod tests {
     use super::*;
     use crate::user::repository::MockUserRepository;
-    use jsonwebtoken::{decode, DecodingKey, Validation};
+    use jsonwebtoken::{DecodingKey, Validation, decode};
     use mockall::predicate::*;
     use uuid::Uuid;
 

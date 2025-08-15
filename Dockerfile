@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.82.0-slim as builder
+FROM rust:1.89.0-slim AS builder
 WORKDIR /app
 ADD . /app
 RUN sed -i '/^DATABASE_URL/d' .env

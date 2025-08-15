@@ -1,8 +1,8 @@
 pub mod common;
 
 use common::{
-    channel, clean_up, create_pg_pool, execute_blocking, get_pg_port, start_pg_container, Channel,
-    ContainerCommand,
+    Channel, ContainerCommand, channel, clean_up, create_pg_pool, execute_blocking, get_pg_port,
+    start_pg_container,
 };
 use ctor::{ctor, dtor};
 use journal_backend::journal::model::EventType;
@@ -161,8 +161,8 @@ struct TestFixture<U: UserRepository, E: EventTypeRepository, J: JournalEntryRep
     default_user_id: UserId,
 }
 
-async fn setup_test(
-) -> TestFixture<PgUserRepository, PgEventTypeRepository, PgJournalEntryRepository> {
+async fn setup_test()
+-> TestFixture<PgUserRepository, PgEventTypeRepository, PgJournalEntryRepository> {
     let port = get_pg_port(&CMD_IN, &PG_PORT).await;
     let pool = create_pg_pool(port).await;
     let user_repo = PgUserRepository::new(pool.clone());

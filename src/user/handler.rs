@@ -3,7 +3,7 @@ use crate::user::model::{LoginRequest, NewUser, UpdatePasswordRequest, UserId};
 use crate::user::service::UserService;
 use actix_web::http::header;
 use actix_web::http::header::CacheDirective;
-use actix_web::{web, HttpResponse};
+use actix_web::{HttpResponse, web};
 use validator::Validate;
 
 pub async fn register<T: UserService>(
@@ -33,9 +33,5 @@ pub async fn update_password<T: UserService>(
 ) -> Result<HttpResponse, AppError> {
     let success =
         user_service.update_password(user_id.into_inner(), update.into_inner().password).await?;
-    if success {
-        Ok(HttpResponse::Ok().finish())
-    } else {
-        Err(AppError::ProcessingError)
-    }
+    if success { Ok(HttpResponse::Ok().finish()) } else { Err(AppError::ProcessingError) }
 }

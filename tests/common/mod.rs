@@ -3,11 +3,11 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool};
 use std::future::Future;
 use testcontainers_modules::postgres::Postgres;
-use testcontainers_modules::testcontainers::runners::AsyncRunner;
 use testcontainers_modules::testcontainers::ImageExt;
+use testcontainers_modules::testcontainers::runners::AsyncRunner;
 use tokio::runtime;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use uuid::Uuid;
 
 pub const DEFAULT_PG_PORT: u16 = 5432;

@@ -1,4 +1,4 @@
-use actix_web::http::{header, StatusCode};
+use actix_web::http::{StatusCode, header};
 use actix_web::{HttpResponse, HttpResponseBuilder, ResponseError};
 use serde::Serialize;
 use std::time::Duration;

@@ -1,6 +1,6 @@
 use actix_cors::Cors;
-use actix_web::middleware::{from_fn, Logger};
-use actix_web::{web, App, HttpServer};
+use actix_web::middleware::{Logger, from_fn};
+use actix_web::{App, HttpServer, web};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use actix_web_prom::{PrometheusMetrics, PrometheusMetricsBuilder};
 use dotenvy::dotenv;
